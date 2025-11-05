@@ -1,0 +1,66 @@
+---
+title: "Informe Final: Análisis del Uso de Bicicletas Cyclistic"
+author: "Analista de datos: Santa Cruz, Matías"
+date: "2025-11-04"
+output: html_document
+---
+# 1. Introducción
+Este informe presenta el análisis descriptivo del uso de bicicletas compartidas, comparando los patrones de viaje entre los **miembros anuales** y los **ciclistas ocasionales**.
+
+# 2. Preparación y Procesamiento de Datos (Fases 2 y 3)
+
+### Fragmento de Código: Cargar Datos y Limpieza
+El siguiente código carga las librerías necesarias, importa el archivo CSV y realiza la limpieza y transformación de las variables clave (`started_at`, `ended_at`, y `ride_length`).
+
+```{r limpieza_de_datos, message=FALSE, warning=FALSE}
+# Cargo las librerías 
+library(tidyverse) 
+library(lubridate) 
+library(janitor) 
+
+# Cargo el data frame
+datos_ciclistas <- read_csv("C:/Users/usuario/Documents/Mi Repositorio de RStudio/202509-divvy-tripdata.csv") 
+
+datos_finales_analisis <- datos_ciclistas %>%
+  janitor::clean_names() %>% # Limpia nombres de columnas
+  mutate(started_at = ymd_hms(started_at), # Convierte a formato fecha-hora [7]
+         ended_at = ymd_hms(ended_at)) %>%
+  mutate(ride_length = ended_at - started_at, # Calcula la duración del viaje
+         duracion_segundos = as.numeric(ride_length, units = "secs"),
+         dia_de_semana = wday(started_at, label = TRUE, abbr = FALSE)) %>%
+  filter(duracion_segundos > 0) %>% # Filtra viajes inválidos
+  drop_na(start_station_name, end_station_name) # Elimina nulos en estaciones
+```
+# 3. Análisis Descriptivo (Fase 4)
+### Fragmento de Código: Agregación de Tendencias
+Calculo el número total de viajes y la duración promedio en minutos, agrupando por tipo de usuario (`member_casual`) y día de la semana.
+
+```{r analisis_tendencias, message=FALSE, warning=FALSE}
+analisis_tendencias <- datos_finales_analisis %>%
+  group_by(member_casual, dia_de_semana) %>%
+  summarize(
+    total_viajes = n(), 
+    duracion_promedio_min = mean(duracion_segundos) / 60 
+  ) %>%
+  arrange(duracion_promedio_min)
+  
+print(analisis_tendencias)
+```
+# 4. Visualización (Fase 5)
+### Fragmento de Código: Gráfico de Duración Promedio
+Aquí utilizo el paquete ggplot2 que me permite crear visualizaciones potentes. Este gráfico ilustra la diferencia en el tiempo promedio de uso.
+
+```{r grafico_tendencias, message=FALSE, warning=FALSE}
+grafico_tendencias <- analisis_tendencias %>%
+  ggplot(aes(x = dia_de_semana, y = duracion_promedio_min, fill = member_casual)) +
+  geom_col(position = "dodge") + 
+  labs(title = "Duración Promedio del Viaje: Miembros vs. Ocasionales",
+       x = "Día de la Semana",
+       y = "Duración Promedio (Minutos)",
+       fill = "Tipo de Usuario")
+
+print(grafico_tendencias)
+```
+
+# 5. Conclusiones
+El análisis muestra que los usuarios ocasionales viajan mucho más tiempo los fines de semana (vacaciones/recreación), la recomendación podría ser ofrecer paquetes de membresía promocionales orientados al uso recreativo durante los fines de semana.
